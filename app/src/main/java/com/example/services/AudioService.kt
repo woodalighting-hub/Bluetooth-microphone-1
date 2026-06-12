@@ -14,6 +14,7 @@ import com.example.controller.EarSpyController
 import com.example.data.AppDatabase
 import com.example.data.Recording
 import com.example.data.RecordingRepository
+import com.example.util.LanguageManager
 import kotlinx.coroutines.*
 import java.io.BufferedOutputStream
 import java.io.File
@@ -82,6 +83,7 @@ class AudioService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        LanguageManager.init(applicationContext)
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         
         val db = AppDatabase.getDatabase(applicationContext)
@@ -135,7 +137,7 @@ class AudioService : Service() {
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    EarSpyController.setErrorMessage("Failed to start Microphone: ${e.localizedMessage}")
+                    EarSpyController.setErrorMessage(LanguageManager.strings.micFailed.format(e.localizedMessage))
                 }
                 return@launch
             }
@@ -176,7 +178,7 @@ class AudioService : Service() {
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    EarSpyController.setErrorMessage("Failed to initialize speaker feedback: ${e.localizedMessage}")
+                    EarSpyController.setErrorMessage(LanguageManager.strings.micFailed.format(e.localizedMessage))
                 }
                 record.release()
                 return@launch
@@ -188,7 +190,7 @@ class AudioService : Service() {
                 record.startRecording()
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    EarSpyController.setErrorMessage("Microphone already in use or unavailable: ${e.localizedMessage}")
+                    EarSpyController.setErrorMessage(LanguageManager.strings.micUnavail.format(e.localizedMessage))
                 }
                 record.release()
                 track.release()
@@ -460,11 +462,12 @@ class AudioService : Service() {
     private fun createNotification(): Notification {
         val isRec = EarSpyController.isRecording.value
         val isList = EarSpyController.isListening.value
+        val s = LanguageManager.strings
         val content = when {
-            isRec && isList -> "Listening & Recording audio from headset mic..."
-            isRec -> "Recording background audio from headset mic..."
-            isList -> "Listening to ambient sound in real-time..."
-            else -> "Ear Spy background service stands by..."
+            isRec && isList -> s.activeRecordingNotif
+            isRec -> s.activeRecNotifOnly
+            isList -> s.activeListNotifOnly
+            else -> s.standbyNotif
         }
 
         val pendingIntent = Intent(this, getMainActivityClass()).let {
@@ -472,7 +475,7 @@ class AudioService : Service() {
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Ear Spy Active")
+            .setContentTitle(s.activeNotifTitle)
             .setContentText(content)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentIntent(pendingIntent)

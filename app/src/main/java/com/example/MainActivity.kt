@@ -10,10 +10,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.EarSpyScreen
 import com.example.ui.EarSpyViewModel
 import com.example.ui.theme.MyApplicationTheme
+import com.example.util.LanguageManager
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        LanguageManager.init(this)
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {

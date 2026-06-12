@@ -83,7 +83,8 @@ class EarSpyViewModel(application: Application) : AndroidViewModel(application) 
 
         val file = File(recording.filePath)
         if (!file.exists()) {
-            EarSpyController.setErrorMessage("File not found on disk")
+            val s = com.example.util.LanguageManager.strings
+            EarSpyController.setErrorMessage(s.fileNotFound)
             return
         }
 
@@ -109,7 +110,8 @@ class EarSpyViewModel(application: Application) : AndroidViewModel(application) 
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            EarSpyController.setErrorMessage("Failed to play recording: ${e.localizedMessage}")
+            val s = com.example.util.LanguageManager.strings
+            EarSpyController.setErrorMessage(s.playbackFailed.format(e.localizedMessage))
         }
     }
 

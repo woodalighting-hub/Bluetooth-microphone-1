@@ -54,6 +54,8 @@ fun EarSpyScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val currentLang by com.example.util.LanguageManager.currentLanguage.collectAsStateWithLifecycle()
+    val s = com.example.util.LanguageManager.strings
 
     // Observe permission state
     val initialPermissions = remember {
@@ -94,6 +96,7 @@ fun EarSpyScreen(
         ) {
             if (!permissionsGranted) {
                 PermissionRequestScreen(
+                    s = s,
                     permissions = initialPermissions,
                     onRequestPermissions = {
                         launcher.launch(initialPermissions.toTypedArray())
@@ -108,6 +111,7 @@ fun EarSpyScreen(
 
 @Composable
 fun PermissionRequestScreen(
+    s: com.example.util.AppStrings,
     permissions: List<String>,
     onRequestPermissions: () -> Unit
 ) {
@@ -136,7 +140,7 @@ fun PermissionRequestScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "ACCESS PERMISSIONS",
+            text = s.permissionsTitle,
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
@@ -147,7 +151,7 @@ fun PermissionRequestScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "Ear Spy intercepts ambient sound from your Bluetooth headset microphone. To work, the app requires audio recording, local Bluetooth connectivity, and notification privileges.",
+            text = s.permissionsDesc,
             fontSize = 14.sp,
             color = WhiteAlpha60,
             textAlign = TextAlign.Center,
@@ -170,7 +174,7 @@ fun PermissionRequestScreen(
                 .testTag("request_permissions_button")
         ) {
             Text(
-                text = "GRANT ACCESS",
+                text = s.grantAccess,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace
@@ -181,6 +185,9 @@ fun PermissionRequestScreen(
 
 @Composable
 fun DashboardScreen(viewModel: EarSpyViewModel) {
+    val currentLang by com.example.util.LanguageManager.currentLanguage.collectAsStateWithLifecycle()
+    val s = com.example.util.LanguageManager.strings
+
     val isListening by viewModel.isListening.collectAsStateWithLifecycle()
     val isRecording by viewModel.isRecording.collectAsStateWithLifecycle()
     val bluetoothStatus by viewModel.bluetoothScoStatus.collectAsStateWithLifecycle()
@@ -193,6 +200,7 @@ fun DashboardScreen(viewModel: EarSpyViewModel) {
     var activeDialogRecording by remember { mutableStateOf<Recording?>(null) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameInputText by remember { mutableStateOf("") }
+    var showLanguageSettings by remember { mutableStateOf(false) }
 
     // Rolling waveform history (40 bars)
     val waveHistory = remember { mutableStateListOf<Float>().apply { repeat(40) { add(0.05f) } } }
@@ -208,7 +216,11 @@ fun DashboardScreen(viewModel: EarSpyViewModel) {
             .padding(16.dp)
     ) {
         // App Header Status Hud
-        HeaderHud(bluetoothStatus = bluetoothStatus)
+        HeaderHud(
+            bluetoothStatus = bluetoothStatus,
+            s = s,
+            onSettingsClick = { showLanguageSettings = true }
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -219,6 +231,7 @@ fun DashboardScreen(viewModel: EarSpyViewModel) {
 
         // Main Intercept Panel (Tap buttons)
         InterceptControlPanel(
+            s = s,
             isListening = isListening,
             isRecording = isRecording,
             recordingSeconds = recordingSeconds,
@@ -230,6 +243,7 @@ fun DashboardScreen(viewModel: EarSpyViewModel) {
 
         // Gain slide controller
         GainControlSlider(
+            s = s,
             gainFactor = gainFactor,
             onGainChange = { value -> viewModel.setGain(value) }
         )
@@ -237,13 +251,13 @@ fun DashboardScreen(viewModel: EarSpyViewModel) {
         Spacer(modifier = Modifier.height(16.dp))
 
         // Interceptions list
-        RecordingsLogHeader(count = recordings.size)
+        RecordingsLogHeader(s = s, count = recordings.size)
 
         Spacer(modifier = Modifier.height(8.dp))
 
         Box(modifier = Modifier.weight(1f)) {
             if (recordings.isEmpty()) {
-                EmptyStateLogger()
+                EmptyStateLogger(s = s)
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -255,6 +269,7 @@ fun DashboardScreen(viewModel: EarSpyViewModel) {
                         val totalSec = viewModel.playbackDuration.collectAsStateWithLifecycle().value
 
                         RecordingItem(
+                            s = s,
                             recording = rec,
                             isPlaying = isPlaying,
                             playProgressSeconds = progressSec,
@@ -290,7 +305,7 @@ fun DashboardScreen(viewModel: EarSpyViewModel) {
                     Icon(Icons.Default.Warning, contentDescription = "Error", tint = CyberPink)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        "SYSTEM WARNING",
+                        s.systemWarning,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
                         fontFamily = FontFamily.Monospace
@@ -313,7 +328,7 @@ fun DashboardScreen(viewModel: EarSpyViewModel) {
             onDismissRequest = { showRenameDialog = false },
             title = {
                 Text(
-                    "RENAME INTERCEPTION",
+                    s.renameInterception,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
                     fontSize = 16.sp,
@@ -322,7 +337,7 @@ fun DashboardScreen(viewModel: EarSpyViewModel) {
             },
             text = {
                 Column {
-                    Text("Enter custom identification name:", color = WhiteAlpha60, fontSize = 12.sp)
+                    Text(s.enterCustomName, color = WhiteAlpha60, fontSize = 12.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = renameInputText,
@@ -351,12 +366,76 @@ fun DashboardScreen(viewModel: EarSpyViewModel) {
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = NeonGreen, contentColor = Color.Black)
                 ) {
-                    Text("SAVE", fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    Text(s.save, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showRenameDialog = false }) {
-                    Text("CANCEL", color = WhiteAlpha60, fontFamily = FontFamily.Monospace)
+                    Text(s.cancel, color = WhiteAlpha60, fontFamily = FontFamily.Monospace)
+                }
+            },
+            containerColor = DarkSurfaceElevated
+        )
+    }
+
+    // Language Settings Dialog
+    if (showLanguageSettings) {
+        AlertDialog(
+            onDismissRequest = { showLanguageSettings = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Settings, contentDescription = "Settings", tint = NeonGreen)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        s.settingsTitle,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            },
+            text = {
+                Column {
+                    Text(
+                        s.appLanguage,
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                    Text(
+                        s.selectLanguageDesc,
+                        color = WhiteAlpha60,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+
+                    // English selection option
+                    LanguageOptionRow(
+                        label = s.languageEn,
+                        isSelected = currentLang == "en",
+                        onClick = {
+                            com.example.util.LanguageManager.setLanguage("en")
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Ukrainian selection option
+                    LanguageOptionRow(
+                        label = s.languageUk,
+                        isSelected = currentLang == "uk",
+                        onClick = {
+                            com.example.util.LanguageManager.setLanguage("uk")
+                        }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showLanguageSettings = false }) {
+                    Text(s.close, color = NeonGreen, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                 }
             },
             containerColor = DarkSurfaceElevated
@@ -365,7 +444,57 @@ fun DashboardScreen(viewModel: EarSpyViewModel) {
 }
 
 @Composable
-fun HeaderHud(bluetoothStatus: String) {
+fun LanguageOptionRow(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isSelected) Color(0x1F00E676) else DarkSurface)
+            .border(
+                1.dp,
+                if (isSelected) NeonGreen else WhiteAlpha30,
+                RoundedCornerShape(8.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            color = if (isSelected) NeonGreen else Color.White,
+            fontFamily = FontFamily.Monospace
+        )
+        Box(
+            modifier = Modifier
+                .size(16.dp)
+                .border(2.dp, if (isSelected) NeonGreen else WhiteAlpha30, CircleShape)
+                .padding(3.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(NeonGreen, CircleShape)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun HeaderHud(
+    bluetoothStatus: String,
+    s: com.example.util.AppStrings,
+    onSettingsClick: () -> Unit
+) {
     val bColor = when (bluetoothStatus) {
         "Connected" -> NeonGreen
         "Connecting" -> ElectricBlue
@@ -374,10 +503,10 @@ fun HeaderHud(bluetoothStatus: String) {
     }
 
     val bText = when (bluetoothStatus) {
-        "Connected" -> "SECURE HEADSET ACTIVE"
-        "Connecting" -> "BLUETOOTH PAIRING..."
-        "Disconnected" -> "BLUETOOTH SCANNING/DISCONNECTED"
-        "Unsupported" -> "SCO CHANNELS UNAVAILABLE"
+        "Connected" -> s.secureHeadsetActive
+        "Connecting" -> s.bluetoothPairing
+        "Disconnected" -> s.bluetoothDisconnected
+        "Unsupported" -> s.scoChannelsUnavailable
         else -> bluetoothStatus.uppercase()
     }
 
@@ -393,7 +522,7 @@ fun HeaderHud(bluetoothStatus: String) {
     ) {
         Column {
             Text(
-                text = "EAR SPY // MONITOR",
+                text = s.appTagline,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 color = NeonGreen,
@@ -418,35 +547,55 @@ fun HeaderHud(bluetoothStatus: String) {
             }
         }
 
-        // Radar pulse simulation circle
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .background(Color(0x12FFFFFF), CircleShape),
-            contentAlignment = Alignment.Center
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            val infiniteTransition = rememberInfiniteTransition(label = "Pulse")
-            val scale by infiniteTransition.animateFloat(
-                initialValue = 0.6f,
-                targetValue = 1.2f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(1500, easing = LinearEasing),
-                    repeatMode = RepeatMode.Restart
-                ),
-                label = "PulseScale"
-            )
+            // Radar pulse simulation circle
             Box(
                 modifier = Modifier
-                    .size(24.dp)
-                    .drawBehind {
-                        drawCircle(
-                            color = bColor,
-                            radius = size.minDimension / 2 * scale,
-                            alpha = (1.2f - scale).coerceIn(0f, 1f)
-                        )
-                    }
-                    .background(Color.Transparent, CircleShape)
-            )
+                    .size(32.dp)
+                    .background(Color(0x12FFFFFF), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                val infiniteTransition = rememberInfiniteTransition(label = "Pulse")
+                val scale by infiniteTransition.animateFloat(
+                    initialValue = 0.6f,
+                    targetValue = 1.2f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1500, easing = LinearEasing),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "PulseScale"
+                )
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .drawBehind {
+                            drawCircle(
+                                color = bColor,
+                                radius = size.minDimension / 2 * scale,
+                                alpha = (1.2f - scale).coerceIn(0f, 1f)
+                            )
+                        }
+                        .background(Color.Transparent, CircleShape)
+                )
+            }
+
+            // Settings gear button
+            IconButton(
+                onClick = onSettingsClick,
+                modifier = Modifier
+                    .size(32.dp)
+                    .testTag("settings_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = NeonGreen,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }
@@ -529,6 +678,7 @@ fun GridOverlay() {
 
 @Composable
 fun InterceptControlPanel(
+    s: com.example.util.AppStrings,
     isListening: Boolean,
     isRecording: Boolean,
     recordingSeconds: Int,
@@ -541,12 +691,12 @@ fun InterceptControlPanel(
     ) {
         // Toggle ear feedback (Listening)
         CardButton(
-            title = "INTERCEPT EAR FEEDBACK",
+            title = s.interceptEarFeedback,
             isActive = isListening,
             activeColor = NeonGreen,
             inactiveColor = Color(0xFF1E2824),
             icon = if (isListening) Icons.Default.Close else Icons.Default.PlayArrow,
-            label = if (isListening) "STOP MONITORING" else "START HEAR MODE",
+            label = if (isListening) s.stopMonitoring else s.startHearMode,
             onClick = onToggleListening,
             modifier = Modifier
                 .weight(1f)
@@ -559,12 +709,12 @@ fun InterceptControlPanel(
         val timerLabel = String.format("%02d:%02d", minutes, seconds)
 
         CardButton(
-            title = "RECORD INTERCEPTION",
+            title = s.recordInterception,
             isActive = isRecording,
             activeColor = RedNeon,
             inactiveColor = Color(0xFF2B1417),
             icon = if (isRecording) Icons.Default.Close else Icons.Default.Star, // Pulse placeholder
-            label = if (isRecording) "RECORDING... $timerLabel" else "START RECORD",
+            label = if (isRecording) s.recordingLabel.format(timerLabel) else s.startRecord,
             onClick = onToggleRecording,
             modifier = Modifier
                 .weight(1f)
@@ -657,6 +807,7 @@ fun CardButton(
 
 @Composable
 fun GainControlSlider(
+    s: com.example.util.AppStrings,
     gainFactor: Float,
     onGainChange: (Float) -> Unit
 ) {
@@ -674,7 +825,7 @@ fun GainControlSlider(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "AMPLIFIER GAIN BOOST",
+                text = s.amplifierGainBoost,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = WhiteAlpha60,
@@ -709,14 +860,17 @@ fun GainControlSlider(
 }
 
 @Composable
-fun RecordingsLogHeader(count: Int) {
+fun RecordingsLogHeader(
+    s: com.example.util.AppStrings,
+    count: Int
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "INTERCEPTIONS LOG",
+            text = s.interceptionsLog,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             color = WhiteAlpha60,
@@ -731,7 +885,7 @@ fun RecordingsLogHeader(count: Int) {
                 .padding(horizontal = 8.dp, vertical = 2.dp)
         ) {
             Text(
-                text = "$count TOTAL",
+                text = s.totalSuffix.format(count),
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 color = NeonGreen,
@@ -743,6 +897,7 @@ fun RecordingsLogHeader(count: Int) {
 
 @Composable
 fun RecordingItem(
+    s: com.example.util.AppStrings,
     recording: Recording,
     isPlaying: Boolean,
     playProgressSeconds: Int,
@@ -896,7 +1051,7 @@ fun RecordingItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "PLAYING BACK",
+                        text = s.playingBack,
                         fontSize = 10.sp,
                         color = NeonGreen,
                         fontFamily = FontFamily.Monospace
@@ -914,7 +1069,7 @@ fun RecordingItem(
 }
 
 @Composable
-fun EmptyStateLogger() {
+fun EmptyStateLogger(s: com.example.util.AppStrings) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -932,7 +1087,7 @@ fun EmptyStateLogger() {
         )
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = "NO INTERCEPTIONS SAVED",
+            text = s.noInterceptionsSaved,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             color = WhiteAlpha60,
@@ -940,7 +1095,7 @@ fun EmptyStateLogger() {
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "Use the red Record Interception pad above to capture and persist high-gain audio feeds locally.",
+            text = s.emptyLogTip,
             fontSize = 11.sp,
             color = WhiteAlpha30,
             textAlign = TextAlign.Center,
