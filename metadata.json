@@ -1,0 +1,6 @@
+{
+  "name": "Ear Spy",
+  "description": "Ear Spy Bluetooth real-time listener and background sound recorder.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
